@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Kesalahan — PMB DevSecOps Lab{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <p class="section-label">KESALAHAN</p>
+  <h2>Permintaan tidak dapat diproses</h2>
+  <p>Gunakan request ID berikut untuk penelusuran log:</p>
+  <p class="request-box"><code>{{ request_id }}</code></p>
+  <a class="button-secondary" href="{{ url_for('index') }}">Kembali</a>
+</section>
+{% endblock %}

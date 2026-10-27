@@ -1,0 +1,187 @@
+name: pmb-lab
+
+x-fluentd-logging: &fluentd-logging
+  driver: fluentd
+  options:
+    fluentd-address: "127.0.0.1:24224"
+    fluentd-async: "true"
+    fluentd-buffer-limit: "4096"
+    tag: "pmb.{{.Name}}"
+
+x-app-environment: &app-environment
+  APP_DB_HOST: app-db
+  APP_DB_PORT: "5432"
+  APP_DB_NAME: ${APP_DB_NAME}
+  APP_DB_USER: ${APP_DB_USER}
+  APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+
+services:
+  app-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${APP_DB_NAME}
+      POSTGRES_USER: ${APP_DB_ADMIN_USER}
+      POSTGRES_PASSWORD: ${APP_DB_ADMIN_PASSWORD}
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+    volumes:
+      - app-db-data:/var/lib/postgresql/data
+      - ./init-app:/docker-entrypoint-initdb.d:ro
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  log-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${LOG_DB_NAME}
+      POSTGRES_USER: ${LOG_DB_ADMIN_USER}
+      POSTGRES_PASSWORD: ${LOG_DB_ADMIN_PASSWORD}
+      FLUENTBIT_DB_USER: ${FLUENTBIT_DB_USER}
+      FLUENTBIT_DB_PASSWORD: ${FLUENTBIT_DB_PASSWORD}
+    volumes:
+      - log-db-data:/var/lib/postgresql/data
+      - ./init-log:/docker-entrypoint-initdb.d:ro
+    networks:
+      - logging-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  fluent-bit:
+    image: fluent/fluent-bit:4.2.8
+    environment:
+      LOG_DB_NAME: ${LOG_DB_NAME}
+      FLUENTBIT_DB_USER: ${FLUENTBIT_DB_USER}
+      FLUENTBIT_DB_PASSWORD: ${FLUENTBIT_DB_PASSWORD}
+    volumes:
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - fluent-bit-buffer:/var/log/flb-storage
+    ports:
+      - "127.0.0.1:24224:24224"
+      - "127.0.0.1:2020:2020"
+    networks:
+      - logging-net
+    depends_on:
+      log-db:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ./app
+    command:
+      - gunicorn
+      - --bind
+      - 0.0.0.0:8081
+      - --workers
+      - "2"
+      - --threads
+      - "2"
+      - --access-logfile
+      - "-"
+      - --error-logfile
+      - "-"
+      - auth_service:app
+    environment:
+      LAB_USERNAME: ${LAB_USERNAME}
+      LAB_USER_REF: ${LAB_USER_REF}
+      LAB_PASSWORD_SALT: ${LAB_PASSWORD_SALT}
+      LAB_PASSWORD_HASH: ${LAB_PASSWORD_HASH}
+    networks:
+      - app-net
+    depends_on:
+      fluent-bit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777
+    logging: *fluentd-logging
+    restart: unless-stopped
+
+  registration-api:
+    build:
+      context: ./app
+    environment:
+      <<: *app-environment
+      AUTH_URL: ${AUTH_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - app-net
+    depends_on:
+      app-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      fluent-bit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777
+    logging: *fluentd-logging
+    restart: unless-stopped
+
+  verification-worker:
+    build:
+      context: ./app
+    command: ["python", "worker.py"]
+    environment:
+      <<: *app-environment
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS}
+    networks:
+      - app-net
+    depends_on:
+      app-db:
+        condition: service_healthy
+      fluent-bit:
+        condition: service_started
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777
+    logging: *fluentd-logging
+    restart: unless-stopped
+
+volumes:
+  app-db-data:
+  log-db-data:
+  fluent-bit-buffer:
+
+networks:
+  app-net:
+    internal: true
+  logging-net:
+    internal: true

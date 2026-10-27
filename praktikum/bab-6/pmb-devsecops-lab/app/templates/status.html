@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Status Pendaftaran — PMB DevSecOps Lab{% endblock %}
+{% block content %}
+<section class="summary">
+  <div>
+    <p class="section-label">LANGKAH 3</p>
+    <h2>Status verifikasi</h2>
+    <p class="muted">Mode insiden saat ini: <span class="badge badge-{{ 'danger' if incident_mode != 'none' else 'ok' }}">{{ incident_mode }}</span></p>
+  </div>
+  <a class="button-secondary" href="{{ url_for('register') }}">Pendaftaran baru</a>
+</section>
+
+<section class="card table-card">
+  {% if registrations %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Program</th><th>Status</th><th>Percobaan</th><th>Kode</th><th>Request ID</th><th>Diperbarui</th></tr>
+      </thead>
+      <tbody>
+        {% for item in registrations %}
+        <tr>
+          <td><code>{{ item.public_id[:8] }}</code></td>
+          <td>{{ item.program }}</td>
+          <td><span class="status status-{{ item.status|lower }}">{{ item.status }}</span></td>
+          <td>{{ item.attempt }}</td>
+          <td>{{ item.failure_code or '—' }}</td>
+          <td><code>{{ item.request_id }}</code></td>
+          <td>{{ item.updated_at }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty-state">
+      <h3>Belum ada pendaftaran</h3>
+      <p>Kirim formulir pertama untuk memulai alur observability.</p>
+    </div>
+  {% endif %}
+</section>
+
+<aside class="hint">
+  Jalankan <code>./scripts/set-incident.sh timeout</code> sebelum mengirim pendaftaran untuk menguji retry dan kegagalan worker.
+</aside>
+{% endblock %}

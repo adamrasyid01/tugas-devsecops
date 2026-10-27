@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Login — PMB DevSecOps Lab{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <p class="section-label">LANGKAH 1</p>
+  <h2>Masuk ke portal</h2>
+  <p class="muted">Gunakan akun sintetis laboratorium. Credential ini tidak boleh digunakan pada sistem lain.</p>
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Nama pengguna
+      <input name="username" autocomplete="username" maxlength="128" required autofocus>
+    </label>
+    <label>Kata sandi
+      <input type="password" name="password" autocomplete="current-password" maxlength="256" required>
+    </label>
+    <button type="submit">Masuk</button>
+  </form>
+  <aside class="hint">
+    <strong>Akun lab:</strong> <code>student</code> / <code>StudentLab!2026</code>
+  </aside>
+</section>
+{% endblock %}

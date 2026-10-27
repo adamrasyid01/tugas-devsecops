@@ -1,0 +1,9 @@
+.env
+reports/*
+!reports/.gitkeep
+*.log
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+cookies.txt

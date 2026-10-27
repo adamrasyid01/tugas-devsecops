@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Formulir Pendaftaran — PMB DevSecOps Lab{% endblock %}
+{% block content %}
+<div class="grid-two">
+  <section class="card">
+    <p class="section-label">LANGKAH 2</p>
+    <h2>Formulir pendaftaran</h2>
+    <p class="muted">Setiap pengiriman menghasilkan <em>request ID</em> yang dapat dikorelasikan pada log API dan worker.</p>
+    {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Nama lengkap
+        <input name="full_name" minlength="3" maxlength="120" required>
+      </label>
+      <label>Email sintetis
+        <input type="email" name="email" maxlength="255" placeholder="mahasiswa@example.test" required>
+      </label>
+      <label>Program studi
+        <select name="program" required>
+          <option value="">Pilih program studi</option>
+          {% for program in programs %}<option value="{{ program }}">{{ program }}</option>{% endfor %}
+        </select>
+      </label>
+      <button type="submit">Kirim pendaftaran</button>
+    </form>
+  </section>
+  <aside class="card accent-card">
+    <p class="section-label">KONTRAK LOG</p>
+    <h2>Data yang dicatat</h2>
+    <ul class="clean-list">
+      <li><code>request_id</code> untuk korelasi</li>
+      <li><code>user_ref</code> yang tidak langsung mengungkap identitas</li>
+      <li>status, program, event, dan waktu</li>
+      <li>retry dan kode kegagalan worker</li>
+    </ul>
+    <p class="muted">Nama, email, password, cookie, dan token tidak ditulis ke log aplikasi.</p>
+  </aside>
+</div>
+{% endblock %}
